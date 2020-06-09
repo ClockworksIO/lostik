@@ -1,4 +1,4 @@
-(ns lostik.comm
+(ns lostik.device
   "Communication primitives and device specific api commands."
   (:require
    [clojure.core.async :as a :refer [chan go-loop <! >!!]]
@@ -43,7 +43,6 @@
         (if (and (= 10 (get (get-msg-buffer device) (- (count (get-msg-buffer device)) 1)))   ; ASCII LF
                  (= 13 (get (get-msg-buffer device) (- (count (get-msg-buffer device)) 2))))  ; ASCII CR
           (do
-            (println "message buffer complete. flushing.")
             (a/>!! (.msg-queue device) (u/bytes->str (get-msg-buffer device)))
             (msg-buffer! device [])))
         (recur)))))
@@ -99,7 +98,6 @@
   (let [cmd'  (if (empty? args)
                 cmd
                 (str cmd " " (string/join " " args)))]
-    (println "cmd': " cmd')
     (sc/write (.port device) (u/str->bytes (u/w-crlf cmd')))
     :ok))
 
@@ -120,21 +118,44 @@
     :else (println "Options are: state[:on :off], color[:blue :red]"))
   :ok)
 
+(defn reset-device!
+  "Reset the device."
+  [device]
+  (cmd! device "sys reset"))
 
-(defn join!
-  "Perform an OTAA join with the given credentials."
-  [device app-eui app-key device-eui]
+(defn version
+  "Get the status of the device."
+  [device]
+  (cmd! device "sys get ver"))
+
+
+;; Join a LoRa network either with OTAA or ABP
+(defmulti join-lora! (fn [type _ _ _ _] type))
+
+;; Perform an OTAA join with the given credentials.
+(defmethod join-lora! :otaa [_ device app-eui app-key device-eui]
   (cmd! device (str "mac set appeui " app-eui))
-  (Thread/sleep 500)
+  (Thread/sleep 100)
   (cmd! device (str "mac set appkey " app-key))
-  (Thread/sleep 500)
+  (Thread/sleep 100)
   (cmd! device (str "mac set deveui " device-eui))
-  (Thread/sleep 500)
-  (cmd! device (str "mac join otaa")))
+  (Thread/sleep 100)
+  (cmd! device (str "mac join otaa"))
+  (Thread/sleep 100)
+  :ok)
 
-(defn send-data!
-  "Send data frame over the network. Takes the data as byte sequence."
-  [device data & {:keys [confirm? port]
-                  :or {confirm? false, port 1}}]
-  (let [cnf?  (if confirm? "cnf" "uncnf")]
-    (cmd! device (str "mac tx "cnf?" "port) (u/bytes->hexs data))))
+;; Perform an ABP join with the given credentials.
+(defmethod join-lora! :abp [_ device dev-addr app-skey nwk-skey]
+  (cmd! device (str "mac set devaddr " dev-addr))
+  (Thread/sleep 100)
+  (cmd! device (str "mac set appskey " app-skey))
+  (Thread/sleep 100)
+  (cmd! device (str "mac set nwkskey " nwk-skey))
+  (Thread/sleep 100)
+  (cmd! device (str "mac join abp"))
+  (Thread/sleep 100)
+  :ok)
+
+;; default handler for join-lora! method. Raise exception.
+(defmethod join-lora! :else []
+  (ex-info "Invalid! Either :otaa or :abp join is possible." {}))

@@ -7,7 +7,7 @@
    [serial.core :as sc]
    [serial.util :as su]
    [lanterna.terminal :as t]
-   [lostik.comm :as comm]
+   [lostik.device :as dv]
    [lostik.util :as u])
   (:gen-class))
 ;
@@ -42,7 +42,7 @@
 ;     (println "received message:")
 ;     (println msg)
 ;     (recur)))
- 
+
 
 (def term (t/get-terminal :text))
 
