@@ -1,32 +1,34 @@
 # lostik
 
-FIXME: description
+LoStik is a simple USB LoRaWAN dongle build by Ronoth. This Clojure library provides a set of functions to connect to the LoStik over its USB emulated UART, configure the device and connect to a LoRaWAN network to send and receive data.
 
-## Installation
-
-Download from http://example.com/FIXME.
+The package is intended to be used from the repl.
 
 ## Usage
 
-FIXME: explanation
+The package is intended to be used from the repl.
 
-    $ java -jar lostik-0.1.0-standalone.jar [args]
+## Example Usage
 
-## Options
+The easiest way to get started is to checkout the repository and open a Clojure repl. The `lostik.repl` already imports the required modules.
 
-FIXME: listing of options this app accepts.
+```clojure
+;; create a lora instance to handle transmissions
+(def lora (l/new-lora "/dev/ttyUSB0"))
+;; enable the device
+(l/enable! lora)
+;; join a lora network using the otaa method
+(l/join! lora app-eui app-key device-eui)
+;; encode the hex string "abc" to byte sequence (ascii) and send it over the network
+(send-data! lora (u/str->bytes "abc"))
+```
 
-## Examples
+The `send-data!` function does not take care of byte order! It will send the bytes as they are in the sequence. If you need to encode e.g. an IEEE float value you have to take care of the correct byte order yourself!
 
-...
 
-### Bugs
+### Custom Message Handler
 
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
+The `enable!` function sets up a primitive handler that takes all messages received from the device, no matter if they messages indicating the device state, the state of the lora connection or responses received over lora. For a real application you should provide a custom handler: `(enable! lora handler-fn)`. The `lora-msg-handler` is a good starting point as an example how such a handler could look like.
 
 ## License
 
